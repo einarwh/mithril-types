@@ -1,5 +1,3 @@
-module Hobbitses
-
 open System
 
 type NobleMetal = Gold | Silver
@@ -8,11 +6,11 @@ type JewelKind = Ruby | Emerald | Sapphire | Diamond
 type JewelSize = Tiny | Regular | Massive
 
 type Loot = 
-  | Chalice of NobleMetal 
-  | Coins of int * NobleMetal
-  | Arkenstone 
-  | Jewel of JewelKind * JewelSize
-  | Bag of Loot list
+ | Chalice of NobleMetal 
+ | Coins of int * NobleMetal
+ | Arkenstone 
+ | Jewel of JewelKind * JewelSize
+ | Bag of Loot list
 
 let jewelValue =
   function
@@ -208,7 +206,7 @@ let frodo = {
     Armor = Some bilbosArmor;
     Health = Health { Current = SupplyValue 20; Max = SupplyValue 20 }
     Mana = None
-    Inventory = [theOneRing; Treasure (Coins (10, Gold)) ]
+    Inventory = [theOneRing; Treasure (Coins (123, Gold)) ]
 }
 
 let sam = {
@@ -220,7 +218,7 @@ let sam = {
     Armor = None;
     Health = Health { Current = SupplyValue 25; Max = SupplyValue 25 }
     Mana = None
-    Inventory = [ Food (Apples, 10) ]
+    Inventory = [ Food (Apples, 10); Treasure (Chalice Silver) ]
 }
 
 let gimli = {
@@ -267,3 +265,11 @@ let rec countRace r f =
 
 let samRingbearer = { sam with Inventory = theOneRing :: sam.Inventory }
 
+let getLootFrom (a : Adventurer) = 
+  match a with 
+  {
+    Inventory = inv
+  }
+  -> inv |> List.map (fun it -> match it with Treasure t -> Some t | _ -> None)
+         |> List.filter (fun it -> Option.isSome it)
+         |> List.map (fun it -> it.Value)
