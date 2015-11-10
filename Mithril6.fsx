@@ -1,4 +1,6 @@
-﻿type Name = Name of string
+﻿open System
+
+type Name = Name of string
    
 type Race = Hobbit | Dwarf | Elf | Man
 
@@ -41,6 +43,7 @@ let createLimited m = { Current = m; Max = m}
 let createHealth h = Health (createLimited h)
 let createMana m = Mana (createLimited m)
 
+
 type NobleMetal = Gold | Silver
 
 type Loot = 
@@ -58,11 +61,23 @@ let rec lootValue =
     | Bag (loot) -> loot |> List.map lootValue |> List.sum
     | Arkenstone -> 1000000
 
-let rec justGold (l: Loot) = 
+let rec justGold (l: Loot) : Loot list = 
   match l with
   | Chalice (Gold) | Coins (_, Gold) -> [l]
-  | Bag (loot) -> loot |> List.collect (fun it -> justGold it)
+  | Bag (looot) -> looot |> List.collect (fun it -> justGold it)
   | _ -> []
+
+let rec justGoldWithStructure (l : Loot) : Loot option = 
+  match l with
+  | Chalice (Gold) | Coins (_, Gold) -> Some l
+  | Bag (looot) -> 
+    let goldLooot = looot |> List.map (fun it -> justGoldWithStructure it)
+                          |> List.filter (fun it -> it.IsSome)
+                          |> List.map (fun it -> it.Value)
+    match goldLooot with
+    | [] -> None
+    | _ -> Some (Bag goldLooot)
+  | _ -> None
 
 let someLoot = 
   Bag [ Chalice (Silver); Chalice (Gold); Arkenstone; Bag [ Chalice (Gold); Coins (5, Silver); Coins (50, Gold) ]]
@@ -107,6 +122,58 @@ type Adventurer = {
    Inventory: Item list
 }
 
+let theOneRing = Ring [Invisibility; Longevity; Corrupting];
+
+type Fellow = Alive of Adventurer | Sleeping of Adventurer | Dead of Adventurer
+
+let increaseLimitedValue (inc : int) (lv: LimitedValue) = 
+  match lv with
+    { Current = c; Max = mv } 
+    -> { lv with Current = (Math.Min (mv, c + inc)) }
+
+let reduceLimitedValue (dec : int) (lv : LimitedValue) = 
+  increaseLimitedValue -dec lv
+
+let increaseHealth (inc : int) (Health lv) = 
+    Health (increaseLimitedValue inc lv)
+
+let increaseMana (inc : int) (m: Mana option) = 
+  match m with
+  | Some (Mana lv) -> Some (Mana (increaseLimitedValue inc lv))
+  | None -> None
+
+let quaff (p : PotionEffect) a =
+  match p with 
+  | HealthEffect sv -> Alive { a with Health = increaseHealth sv a.Health }
+  | ManaEffect sv -> Alive { a with Mana = increaseMana sv a.Mana }
+  | Sleep -> Sleeping a
+  | Death -> Dead a
+
+let quaffIfAlive p f = 
+  match f with
+  | Alive a -> quaff p a
+  | _ -> f
+
+let attack (hp : int) (f : Fellow) : Fellow = 
+  match f with
+  | Alive a ->
+    match a with 
+      {
+        Health = Health h
+      } ->
+      let lv = reduceLimitedValue hp h
+      let b = { a with Health = Health lv }
+      match lv with
+      | { Current = 0; Max = _ } -> Dead b
+      | _ -> Alive b
+  | Sleeping a ->
+    match a with 
+      {
+        Health = Health { Current = _; Max = m }
+      } ->
+      Dead { a with Health = Health { Current = 0; Max = m }}
+  | Dead a -> Dead a
+ 
 let bilbosArmor = EnchantedArmor (MagicChainMail (Mithril), Blessing (MagicIntensity 3))
 
 let frodo = {
@@ -116,7 +183,7 @@ let frodo = {
     Level = Level 10
     Weapon = Some sting 
     Armor = Some bilbosArmor
-    Health = createHealth 20 
+    Health = createHealth 20
     Mana = None
     Inventory = []
 }
@@ -175,4 +242,4 @@ let rec countRace r f =
     then 1 + countRace r t
     else countRace r t
 
-        
+            

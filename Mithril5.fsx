@@ -1,4 +1,4 @@
-type Name = Name of string
+﻿type Name = Name of string
    
 type Race = Hobbit | Dwarf | Elf | Man
 
@@ -33,10 +33,13 @@ type RegularArmorKind = RegularChainMail of RegularArmorMetal | LeatherArmor
 type MagicArmorKind = MagicChainMail of MagicArmorMetal
 type Armor = RegularArmor of RegularArmorKind | EnchantedArmor of MagicArmorKind * Enchantment
 
-type SupplyValue = SupplyValue of int
-type Supply = { Current: SupplyValue; Max: SupplyValue }
-type Health = Health of Supply
-type Mana = Mana of Supply
+type LimitedValue = { Current: int; Max: int }
+type Health = Health of LimitedValue
+type Mana = Mana of LimitedValue
+
+let createLimited m = { Current = m; Max = m}
+let createHealth h = Health (createLimited h)
+let createMana m = Mana (createLimited m)
 
 type NobleMetal = Gold | Silver
 
@@ -65,8 +68,8 @@ let someLoot =
   Bag [ Chalice (Silver); Chalice (Gold); Arkenstone; Bag [ Chalice (Gold); Coins (5, Silver); Coins (50, Gold) ]]
 
 type PotionEffect = 
-  | HealthEffect of SupplyValue
-  | ManaEffect of SupplyValue
+  | HealthEffect of int
+  | ManaEffect of int
   | Sleep
   | Death
 
@@ -104,28 +107,57 @@ type Adventurer = {
    Inventory: Item list
 }
 
+let theOneRing = Ring [Invisibility; Longevity; Corrupting];
+
+type Fellow = Alive of Adventurer | Sleeping of Adventurer | Dead of Adventurer
+
+let increaseLimitedValue (inc : int) (lv: LimitedValue) = 
+  match lv with
+    { Current = cv; Max = mv } 
+    -> { lv with Current = (Math.Min (mv, cv + inc)) }
+
+let increaseHealth (inc : int) (Health lv) = 
+    Health (increaseLimitedValue inc lv)
+
+let increaseMana (inc : int) (m: Mana option) = 
+  match m with
+  | Some (Mana lv) -> Some (Mana (increaseLimitedValue inc lv))
+  | None -> None
+
+let quaff (p : PotionEffect) a =
+  match p with 
+  | HealthEffect sv -> Alive { a with Health = increaseHealth sv a.Health }
+  | ManaEffect sv -> Alive { a with Mana = increaseMana sv a.Mana }
+  | Sleep -> Sleeping a
+  | Death -> Dead a
+
+let quaffIfAlive p f = 
+  match f with
+  | Alive a -> quaff p a
+  | _ -> f
+
 let bilbosArmor = EnchantedArmor (MagicChainMail (Mithril), Blessing (MagicIntensity 3))
 
 let frodo = {
-    Name = Name "Frodo";
-    Race = Hobbit;
-    Class = Burglar;
-    Level = Level 10;
-    Weapon = Some sting; 
-    Armor = Some bilbosArmor;
-    Health = Health { Current = SupplyValue 20; Max = SupplyValue 20 }
+    Name = Name "Frodo"
+    Race = Hobbit
+    Class = Burglar
+    Level = Level 10
+    Weapon = Some sting 
+    Armor = Some bilbosArmor
+    Health = createHealth 20
     Mana = None
     Inventory = []
 }
 
 let sam = {
-    Name = Name "Samwise";
-    Race = Hobbit;
-    Class = Gardener;
-    Level = Level 8;
-    Weapon = Some (RegularWeapon Pebbles);
-    Armor = None;
-    Health = Health { Current = SupplyValue 25; Max = SupplyValue 25 }
+    Name = Name "Samwise"
+    Race = Hobbit
+    Class = Gardener
+    Level = Level 8
+    Weapon = Some (RegularWeapon Pebbles)
+    Armor = None
+    Health = createHealth 25
     Mana = None
     Inventory = [ Food (Apples, 10) ]
 }
@@ -137,20 +169,20 @@ let gimli = {
     Level = Level 30
     Weapon = Some (RegularWeapon Axe)
     Armor = Some (EnchantedArmor (MagicChainMail (ArmorSilver), Blessing (MagicIntensity 2)))
-    Health = Health { Current = SupplyValue 80; Max = SupplyValue 80 }
+    Health = createHealth 80
     Mana = None
     Inventory = []
 }
 
 let legolas = {
-    Name = Name "Legolas";
-    Race = Elf;
-    Class = Ranger;
-    Level = Level 30;
+    Name = Name "Legolas"
+    Race = Elf
+    Class = Ranger
+    Level = Level 30
     Weapon = Some (RegularWeapon Bow)
     Armor = Some (RegularArmor LeatherArmor)
-    Health = Health { Current = SupplyValue 60; Max = SupplyValue 60 }
-    Mana = Some (Mana { Current = SupplyValue 10; Max = SupplyValue 10 })
+    Health = createHealth 60
+    Mana = Some (createMana 10)
     Inventory = [ Food (Lembas, 20) ]
 }
 

@@ -1,4 +1,4 @@
-open System
+﻿open System
 
 type NobleMetal = Gold | Silver
 
@@ -101,17 +101,17 @@ type Vocation = Warrior | Wizard | Ranger | Burglar | Gardener
 
 type Level = Level of int
 
-type SupplyValue = SupplyValue of int
+type LimitedValue = { Current: int; Max: int }
+type Health = Health of LimitedValue
+type Mana = Mana of LimitedValue
 
-type Supply = { Current: SupplyValue; Max: SupplyValue }
-
-type Health = Health of Supply
-
-type Mana = Mana of Supply
+let createLimited m = { Current = m; Max = m}
+let createHealth h = Health (createLimited h)
+let createMana m = Mana (createLimited m)
 
 type PotionEffect = 
-  | HealthEffect of SupplyValue
-  | ManaEffect of SupplyValue
+  | HealthEffect of int
+  | ManaEffect of int
   | Sleep
   | Death
 
@@ -176,18 +176,21 @@ let theOneRing = Ring [Invisibility; Longevity; Corrupting];
 
 type Fellow = Alive of Adventurer | Sleeping of Adventurer | Dead of Adventurer
 
-let increaseSupply (sv : SupplyValue) (s: Supply) = 
-  match (sv, s) with
-    SupplyValue v, { Current = SupplyValue cv; Max = SupplyValue mv } 
-    -> { s with Current = SupplyValue (Math.Min (mv, cv + v)) }
+let increaseLimitedValue (inc : int) (lv: LimitedValue) = 
+  match lv with
+    { Current = c; Max = m } 
+    ->
+    { lv with Current = Math.Max(0, (Math.Min (m, c + inc))) }
 
-let increaseHealth (sv : SupplyValue) (h: Health) = 
-  match h with
-    Health s -> Health (increaseSupply sv s)
+let reduceLimitedValue (dec : int) (lv : LimitedValue) = 
+  increaseLimitedValue -dec lv
 
-let increaseMana (sv : SupplyValue) (m: Mana option) = 
+let increaseHealth (inc : int) (Health lv) = 
+    Health (increaseLimitedValue inc lv)
+
+let increaseMana (inc : int) (m: Mana option) = 
   match m with
-  | Some (Mana s) -> Some (Mana (increaseSupply sv s))
+  | Some (Mana lv) -> Some (Mana (increaseLimitedValue inc lv))
   | None -> None
 
 let quaff (p : PotionEffect) a =
@@ -197,6 +200,31 @@ let quaff (p : PotionEffect) a =
   | Sleep -> Sleeping a
   | Death -> Dead a
 
+let quaffIfAlive p f = 
+  match f with
+  | Alive a -> quaff p a
+  | _ -> f
+
+let attack (hp : int) (f : Fellow) : Fellow = 
+  match f with
+  | Alive a ->
+    match a with 
+      {
+        Health = Health h
+      } ->
+      let lv = reduceLimitedValue hp h
+      let b = { a with Health = Health lv }
+      match lv with
+      | { Current = 0; Max = _ } -> Dead b
+      | _ -> Alive b
+  | Sleeping a ->
+    match a with 
+      {
+        Health = Health { Current = _; Max = m }
+      } ->
+      Dead { a with Health = Health { Current = 0; Max = m }}
+  | Dead a -> Dead a
+
 let frodo = {
     Name = Name "Frodo";
     Race = Hobbit;
@@ -204,7 +232,7 @@ let frodo = {
     Level = Level 10;
     Weapon = Some sting; 
     Armor = Some bilbosArmor;
-    Health = Health { Current = SupplyValue 20; Max = SupplyValue 20 }
+    Health = Health { Current = 20; Max = 20 }
     Mana = None
     Inventory = [theOneRing; Treasure (Coins (123, Gold)) ]
 }
@@ -216,7 +244,7 @@ let sam = {
     Level = Level 9;
     Weapon = None;
     Armor = None;
-    Health = Health { Current = SupplyValue 25; Max = SupplyValue 25 }
+    Health = Health { Current = 25; Max = 25 }
     Mana = None
     Inventory = [ Food (Apples, 10); Treasure (Chalice Silver) ]
 }
@@ -228,7 +256,7 @@ let gimli = {
     Level = Level 30;
     Weapon = Some (EnchantedWeapon (Axe, Blessing (MagicIntensity 5)))
     Armor = Some (EnchantedArmor (MagicalChainMail (ArmorSilver), Blessing (MagicIntensity 1)));    
-    Health = Health { Current = SupplyValue 80; Max = SupplyValue 80 }
+    Health = Health { Current = 80; Max = 80 }
     Mana = None
     Inventory = [ Treasure (Coins (100, Gold)); Treasure (Coins (80, Silver)); Treasure Arkenstone ]
 }
@@ -240,8 +268,8 @@ let legolas = {
     Level = Level 30;
     Weapon = Some (EnchantedWeapon (Bow, Blessing (MagicIntensity 5)))
     Armor = Some (RegularArmor (LeatherArmor))
-    Health = Health { Current = SupplyValue 60; Max = SupplyValue 60 }
-    Mana = Some (Mana { Current = SupplyValue 10; Max = SupplyValue 10 })
+    Health = Health { Current = 60; Max = 60 }
+    Mana = Some (Mana { Current = 10; Max = 10 })
     Inventory = [ Food (Lembas, 20) ]
 }
 
